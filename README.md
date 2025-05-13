@@ -10,6 +10,7 @@ A small command‑line script to discover all `Exception` subclasses in a given 
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Example](#example)
 - [License](#license)
 - [Contributing](#contributing)
 - [Possible Future Plans](#possible-future-plans)
@@ -19,6 +20,7 @@ A small command‑line script to discover all `Exception` subclasses in a given 
 - 🔍 Recursively scans a module or package (and its submodules) for all classes derived from `Exception`.
 - 🌳 Prints a clean, indented inheritance tree starting from the built‑in `Exception` class.
 - 🚫 Zero external dependencies—uses only Python’s built‑in libraries (`argparse`, `importlib`, `inspect`, `pkgutil`, etc.).
+- 🗜️  **Compact mode**: suppress extra blank lines with the `-c`/`--compact` flag
 
 ## Requirements
 
@@ -38,7 +40,69 @@ chmod +x exc_tree.py
 ## Usage
 
 ```bash
+./exc_tree.py [options] <module>
+```
+  
+**Options:**
+```
+-h, --help       Show help message and exit
+-c, --compact    Use compact output (no extra blank lines)
+```
+
+## Example
+
+```bash
 % ./exc_tree.py requests
+Exception
+|
+├── OSError
+│   └── requests.exceptions.RequestException
+│       ├── requests.exceptions.ChunkedEncodingError
+│       ├── requests.exceptions.ConnectionError
+│       │   ├── requests.exceptions.ConnectTimeout
+│       │   ├── requests.exceptions.ProxyError
+│       │   └── requests.exceptions.SSLError
+│       |
+│       ├── requests.exceptions.ContentDecodingError
+│       ├── requests.exceptions.HTTPError
+│       ├── requests.exceptions.InvalidHeader
+│       ├── requests.exceptions.InvalidJSONError
+│       │   └── requests.exceptions.JSONDecodeError
+│       |
+│       ├── requests.exceptions.InvalidSchema
+│       ├── requests.exceptions.InvalidURL
+│       │   └── requests.exceptions.InvalidProxyURL
+│       |
+│       ├── requests.exceptions.MissingSchema
+│       ├── requests.exceptions.RetryError
+│       ├── requests.exceptions.StreamConsumedError
+│       ├── requests.exceptions.Timeout
+│       │   └── requests.exceptions.ReadTimeout
+│       |
+│       ├── requests.exceptions.TooManyRedirects
+│       ├── requests.exceptions.UnrewindableBodyError
+│       └── requests.exceptions.URLRequired
+|
+├── RuntimeError
+│   └── requests.cookies.CookieConflictError
+|
+├── TypeError
+|
+├── urllib3.exceptions.HTTPError
+|
+├── ValueError
+│   └── json.decoder.JSONDecodeError
+|
+└── Warning
+    ├── DeprecationWarning
+    └── requests.exceptions.RequestsWarning
+        ├── requests.exceptions.FileModeWarning
+        └── requests.exceptions.RequestsDependencyWarning
+```
+
+**Compact mode example:**
+```bash
+% ./exc_tree.py -c requests
 Exception
 ├── OSError
 │   └── requests.exceptions.RequestException
