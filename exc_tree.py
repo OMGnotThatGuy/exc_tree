@@ -91,21 +91,40 @@ def build_inheritance_tree(exc_classes):
 
     return root, children
 
-def _print_subtree(node, children_map, indent=""):
+def _print_subtree(node, children_map, indent="", compact=False):
     """Helper: print all descendants of node under the current indent."""
     kids = children_map.get(node, [])
     for idx, child in enumerate(kids):
+        # if previous sibling had children, insert a blank line at this indent
+        if not compact and idx > 0:
+            prev = kids[idx - 1]
+            if children_map.get(prev):
+                print(indent + "|")
         last = (idx == len(kids) - 1)
         branch = "└── " if last else "├── "
         print(indent + branch + get_display_name(child))
-        # extend indent: if last, pad with spaces; else, draw a vertical line
-        new_indent = indent + ("    " if last else "│   ")
-        _print_subtree(child, children_map, new_indent)
+        # recurse into children
+        if children_map.get(child):
+            new_indent = indent + ("    " if last else "│   ")
+            _print_subtree(child, children_map, new_indent, compact)
 
-def print_tree(root, children_map):
+def print_tree(root, children_map, compact=False):
     """Print the full tree, starting with Exception."""
+    # Print the root exception
     print(get_display_name(root))
-    _print_subtree(root, children_map, "")
+    # Iterate over first-level children
+    children = children_map.get(root, [])
+    for idx, child in enumerate(children):
+        # blank line before each root child if not in compact mode
+        if not compact:
+            print("|")
+        # branch character
+        last = (idx == len(children) - 1)
+        branch = "└── " if last else "├── "
+        print(branch + get_display_name(child))
+        # prepare indent for subtree
+        new_indent = "" + ("    " if last else "│   ")
+        _print_subtree(child, children_map, new_indent, compact)
 
 def main():
     p = argparse.ArgumentParser(
@@ -115,6 +134,12 @@ def main():
         "module",
         help="Name of the module or package to inspect, e.g. 'requests' or 'my_pkg.subpkg'",
     )
+    p.add_argument(
+        "-c", "--compact",
+        action="store_true",
+        dest="compact",
+        help="Use compact output (no extra blank lines)"
+    )
     args = p.parse_args()
 
     excs = find_exceptions_recursive(args.module)
@@ -123,7 +148,7 @@ def main():
         sys.exit(1)
 
     root, child_map = build_inheritance_tree(excs)
-    print_tree(root, child_map)
+    print_tree(root, child_map, compact=args.compact)
 
 if __name__ == "__main__":
     main()
