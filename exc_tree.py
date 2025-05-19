@@ -62,27 +62,20 @@ def get_display_name(cls: type[Exception]) -> str:
     return f"{cls.__module__}.{cls.__name__}"
 
 
-def build_inheritance_tree(exc_classes: ExcSet, all_paths: bool = False) -> tuple[type[Exception], ExcChildMap, ExcSet]:
-    """
-    Given a set of exception classes, build a map of parent → [children]
-    that spans from Exception down through all their ancestors.
-    """
-    # always include Exception itself as the root
-    root = Exception
-    nodes = {root}
-
-    # gather every exception class plus exception ancestors up to Exception
+def _gather_nodes(exc_classes: ExcSet, root: type[Exception]) -> ExcSet:
+    nodes: ExcSet = {root}
     for cls in exc_classes:
         for ancestor in cls.__mro__:
             if ancestor is object:
                 break
-            # only include Exception subclasses (skip non-Exception bases)
             if not issubclass(ancestor, Exception):
                 continue
             nodes.add(ancestor)
+    return nodes
 
-    # find each node's parent (closest ancestor in nodes)
-    parent_map = {}
+
+def _build_parent_map(nodes: ExcSet, root: type[Exception]) -> dict[type[Exception], type[Exception]]:
+    parent_map: dict[type[Exception], type[Exception]] = {}
     for cls in nodes:
         if cls is root:
             continue
@@ -90,30 +83,50 @@ def build_inheritance_tree(exc_classes: ExcSet, all_paths: bool = False) -> tupl
             if anc in nodes:
                 parent_map[cls] = anc
                 break
+    return parent_map
 
-    # invert into children map
+
+def _invert_parent_map(parent_map: dict[type[Exception], type[Exception]]) -> ExcChildMap:
     children: ExcChildMap = {}
     for child, parent in parent_map.items():
         children.setdefault(parent, []).append(child)
+    return children
 
-    # sort children lists for stable output
+
+def _sort_children(children: ExcChildMap) -> None:
     for lst in children.values():
         lst.sort(key=lambda c: get_display_name(c).lower())
-    # detect classes with multiple direct Exception-parents
-    multi_parents = {
-        cls for cls in nodes if cls is not root and len([base for base in cls.__bases__ if base in nodes]) > 1
-    }
+
+
+def _detect_multi_parents(nodes: ExcSet) -> ExcSet:
+    return {cls for cls in nodes if cls is not Exception and len([b for b in cls.__bases__ if b in nodes]) > 1}
+
+
+def _duplicate_multi_parents(children: ExcChildMap, multi_parents: ExcSet, nodes: ExcSet) -> None:
+    for cls in multi_parents:
+        direct_parents = [b for b in cls.__bases__ if b in nodes]
+        for base in direct_parents:
+            if cls not in children.get(base, []):
+                children.setdefault(base, []).append(cls)
+
+
+def build_inheritance_tree(exc_classes: ExcSet, all_paths: bool = False) -> tuple[type[Exception], ExcChildMap, ExcSet]:
+    """
+    Given a set of exception classes, build a map of parent → [children]
+    that spans from Exception down through all their ancestors.
+    """
+    root = Exception
+
+    nodes = _gather_nodes(exc_classes, root)
+    parent_map = _build_parent_map(nodes, root)
+    children = _invert_parent_map(parent_map)
+
+    _sort_children(children)
+    multi_parents = _detect_multi_parents(nodes)
 
     if all_paths:
-        # duplicate multi-parent classes under each parent
-        for cls in multi_parents:
-            direct_parents = [base for base in cls.__bases__ if base in nodes]
-            for base in direct_parents:
-                if cls not in children.get(base, []):
-                    children.setdefault(base, []).append(cls)
-        # re-sort children lists after adding duplicates
-        for lst in children.values():
-            lst.sort(key=lambda c: get_display_name(c).lower())
+        _duplicate_multi_parents(children, multi_parents, nodes)
+        _sort_children(children)
 
     return root, children, multi_parents
 
