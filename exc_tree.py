@@ -9,13 +9,19 @@ A small command‑line script to discover all Exception subclasses in a given
 Python module or package, then display their inheritance tree.
 """
 
+from __future__ import annotations
 import argparse
 import inspect
 import importlib
 import pkgutil
 import sys
+from typing import Optional, TypeAlias
 
-def find_exceptions_recursive(root_name):
+ExcSet: TypeAlias = set[type[Exception]]
+ExcChildMap: TypeAlias = dict[type[Exception], list[type[Exception]]]
+
+
+def find_exceptions_recursive(root_name: str) -> ExcSet:
     """
     Import root_name, walk its submodules, and return
     a set of all Exception subclasses defined in them.
@@ -48,13 +54,15 @@ def find_exceptions_recursive(root_name):
 
     return exceptions
 
-def get_display_name(cls):
+
+def get_display_name(cls: type[Exception]) -> str:
     """Pretty-print: builtins drop module, others show full dotted path."""
     if cls.__module__ == "builtins":
         return cls.__name__
     return f"{cls.__module__}.{cls.__name__}"
 
-def build_inheritance_tree(exc_classes, all_paths=False):
+
+def build_inheritance_tree(exc_classes: ExcSet, all_paths: bool = False) -> tuple[type[Exception], ExcChildMap, ExcSet]:
     """
     Given a set of exception classes, build a map of parent → [children]
     that spans from Exception down through all their ancestors.
@@ -84,7 +92,7 @@ def build_inheritance_tree(exc_classes, all_paths=False):
                 break
 
     # invert into children map
-    children = {}
+    children: ExcChildMap = {}
     for child, parent in parent_map.items():
         children.setdefault(parent, []).append(child)
 
@@ -110,7 +118,14 @@ def build_inheritance_tree(exc_classes, all_paths=False):
 
     return root, children, multi_parents
 
-def _print_subtree(node, children_map, indent="", compact=False, multi_parents=None):
+
+def _print_subtree(
+    node: type[Exception],
+    children_map: ExcChildMap,
+    indent: str = "",
+    compact: bool = False,
+    multi_parents: Optional[ExcSet] = None,
+) -> None:
     """Helper: print all descendants of node under the current indent."""
     if multi_parents is None:
         multi_parents = set()
@@ -121,7 +136,7 @@ def _print_subtree(node, children_map, indent="", compact=False, multi_parents=N
             prev = kids[idx - 1]
             if children_map.get(prev):
                 print(indent + "|")
-        last = (idx == len(kids) - 1)
+        last = idx == len(kids) - 1
         branch = "└── " if last else "├── "
         suffix = " *" if child in multi_parents else ""
         print(indent + branch + get_display_name(child) + suffix)
@@ -130,7 +145,13 @@ def _print_subtree(node, children_map, indent="", compact=False, multi_parents=N
             new_indent = indent + ("    " if last else "│   ")
             _print_subtree(child, children_map, new_indent, compact, multi_parents)
 
-def print_tree(root, children_map, multi_parents, compact=False):
+
+def print_tree(
+    root: type[Exception],
+    children_map: ExcChildMap,
+    multi_parents: ExcSet,
+    compact: bool = False,
+) -> None:
     """Print the full tree, starting with Exception."""
     # Print the root exception
     print(get_display_name(root))
@@ -141,7 +162,7 @@ def print_tree(root, children_map, multi_parents, compact=False):
         if not compact:
             print("|")
         # branch character
-        last = (idx == len(children) - 1)
+        last = idx == len(children) - 1
         branch = "└── " if last else "├── "
         suffix = " *" if child in multi_parents else ""
         print(branch + get_display_name(child) + suffix)
@@ -149,7 +170,8 @@ def print_tree(root, children_map, multi_parents, compact=False):
         new_indent = "" + ("    " if last else "│   ")
         _print_subtree(child, children_map, new_indent, compact, multi_parents)
 
-def main():
+
+def main() -> None:
     p = argparse.ArgumentParser(
         description="Find all Exception subclasses in a module/package and show their inheritance tree.",
         epilog="Classes marked with '*' indicate classes inheriting from multiple Exception bases. Use -a or --all-paths to see them.",
