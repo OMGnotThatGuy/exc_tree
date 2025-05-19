@@ -29,7 +29,7 @@ def find_exceptions_recursive(root_name):
     modules = [(root_name, root)]
     # if it's a package, walk its submodules
     if hasattr(root, "__path__"):
-        for finder, name, ispkg in pkgutil.walk_packages(root.__path__, root_name + "."):
+        for _finder, name, _ispkg in pkgutil.walk_packages(root.__path__, root_name + "."):
             try:
                 submod = importlib.import_module(name)
                 modules.append((name, submod))
