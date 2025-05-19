@@ -89,10 +89,27 @@ def build_inheritance_tree(exc_classes):
     for lst in children.values():
         lst.sort(key=lambda c: get_display_name(c).lower())
 
-    return root, children
+    # detect classes with multiple direct Exception-parents
+    multi_parents = set()
+    for cls in nodes:
+        if cls is root:
+            continue
+        direct_parents = [base for base in cls.__bases__ if base in nodes]
+        if len(direct_parents) > 1:
+            multi_parents.add(cls)
+            for base in direct_parents:
+                if cls not in children.get(base, []):
+                    children.setdefault(base, []).append(cls)
+    # re-sort children lists after adding duplicates
+    for lst in children.values():
+        lst.sort(key=lambda c: get_display_name(c).lower())
 
-def _print_subtree(node, children_map, indent="", compact=False):
+    return root, children, multi_parents
+
+def _print_subtree(node, children_map, indent="", compact=False, multi_parents=None):
     """Helper: print all descendants of node under the current indent."""
+    if multi_parents is None:
+        multi_parents = set()
     kids = children_map.get(node, [])
     for idx, child in enumerate(kids):
         # if previous sibling had children, insert a blank line at this indent
@@ -102,13 +119,14 @@ def _print_subtree(node, children_map, indent="", compact=False):
                 print(indent + "|")
         last = (idx == len(kids) - 1)
         branch = "└── " if last else "├── "
-        print(indent + branch + get_display_name(child))
+        suffix = " *" if child in multi_parents else ""
+        print(indent + branch + get_display_name(child) + suffix)
         # recurse into children
         if children_map.get(child):
             new_indent = indent + ("    " if last else "│   ")
-            _print_subtree(child, children_map, new_indent, compact)
+            _print_subtree(child, children_map, new_indent, compact, multi_parents)
 
-def print_tree(root, children_map, compact=False):
+def print_tree(root, children_map, multi_parents, compact=False):
     """Print the full tree, starting with Exception."""
     # Print the root exception
     print(get_display_name(root))
@@ -121,14 +139,16 @@ def print_tree(root, children_map, compact=False):
         # branch character
         last = (idx == len(children) - 1)
         branch = "└── " if last else "├── "
-        print(branch + get_display_name(child))
+        suffix = " *" if child in multi_parents else ""
+        print(branch + get_display_name(child) + suffix)
         # prepare indent for subtree
         new_indent = "" + ("    " if last else "│   ")
-        _print_subtree(child, children_map, new_indent, compact)
+        _print_subtree(child, children_map, new_indent, compact, multi_parents)
 
 def main():
     p = argparse.ArgumentParser(
-        description="Find all Exception subclasses in a module/package and show their inheritance tree."
+        description="Find all Exception subclasses in a module/package and show their inheritance tree.",
+        epilog="Classes marked with '*' have other Exception-parents besides the one shown."
     )
     p.add_argument(
         "module",
@@ -147,8 +167,8 @@ def main():
         print(f"No Exception subclasses found in '{args.module}'.", file=sys.stderr)
         sys.exit(1)
 
-    root, child_map = build_inheritance_tree(excs)
-    print_tree(root, child_map, compact=args.compact)
+    root, child_map, multi_parents = build_inheritance_tree(excs)
+    print_tree(root, child_map, multi_parents, compact=args.compact)
 
 if __name__ == "__main__":
     main()
