@@ -152,11 +152,18 @@ def print_tree(root, children_map, multi_parents, compact=False):
 def main():
     p = argparse.ArgumentParser(
         description="Find all Exception subclasses in a module/package and show their inheritance tree.",
-        epilog="Classes marked with '*' have other Exception-parents besides the one shown."
+        epilog="Classes marked with '*' indicate classes inheriting from multiple Exception bases. Use -a or --all-paths to see them.",
     )
     p.add_argument(
         "module",
         help="Name of the module or package to inspect, e.g. 'requests' or 'my_pkg.subpkg'",
+        metavar="module|package.submodule",
+    )
+    p.add_argument(
+        "-a", "--all-paths",
+        action="store_true",
+        dest="all_paths",
+        help="Duplicate classes inheriting from multiple Exception bases under each parent class"
     )
     p.add_argument(
         "-c", "--compact",
@@ -164,12 +171,7 @@ def main():
         dest="compact",
         help="Use compact output (no extra blank lines)"
     )
-    p.add_argument(
-        "-a", "--all-paths",
-        action="store_true",
-        dest="all_paths",
-        help="When set, duplicate classes under each of their Exception-parents (requires more space)"
-    )
+
     args = p.parse_args()
 
     excs = find_exceptions_recursive(args.module)
