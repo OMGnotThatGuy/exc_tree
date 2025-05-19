@@ -54,7 +54,7 @@ def get_display_name(cls):
         return cls.__name__
     return f"{cls.__module__}.{cls.__name__}"
 
-def build_inheritance_tree(exc_classes):
+def build_inheritance_tree(exc_classes, all_paths=False):
     """
     Given a set of exception classes, build a map of parent → [children]
     that spans from Exception down through all their ancestors.
@@ -88,21 +88,22 @@ def build_inheritance_tree(exc_classes):
     # sort children lists for stable output
     for lst in children.values():
         lst.sort(key=lambda c: get_display_name(c).lower())
-
     # detect classes with multiple direct Exception-parents
-    multi_parents = set()
-    for cls in nodes:
-        if cls is root:
-            continue
-        direct_parents = [base for base in cls.__bases__ if base in nodes]
-        if len(direct_parents) > 1:
-            multi_parents.add(cls)
+    multi_parents = {
+        cls for cls in nodes
+        if cls is not root and len([base for base in cls.__bases__ if base in nodes]) > 1
+    }
+
+    if all_paths:
+        # duplicate multi-parent classes under each parent
+        for cls in multi_parents:
+            direct_parents = [base for base in cls.__bases__ if base in nodes]
             for base in direct_parents:
                 if cls not in children.get(base, []):
                     children.setdefault(base, []).append(cls)
-    # re-sort children lists after adding duplicates
-    for lst in children.values():
-        lst.sort(key=lambda c: get_display_name(c).lower())
+        # re-sort children lists after adding duplicates
+        for lst in children.values():
+            lst.sort(key=lambda c: get_display_name(c).lower())
 
     return root, children, multi_parents
 
@@ -160,6 +161,12 @@ def main():
         dest="compact",
         help="Use compact output (no extra blank lines)"
     )
+    p.add_argument(
+        "-a", "--all-paths",
+        action="store_true",
+        dest="all_paths",
+        help="When set, duplicate classes under each of their Exception-parents (requires more space)"
+    )
     args = p.parse_args()
 
     excs = find_exceptions_recursive(args.module)
@@ -167,7 +174,7 @@ def main():
         print(f"No Exception subclasses found in '{args.module}'.", file=sys.stderr)
         sys.exit(1)
 
-    root, child_map, multi_parents = build_inheritance_tree(excs)
+    root, child_map, multi_parents = build_inheritance_tree(excs, all_paths=args.all_paths)
     print_tree(root, child_map, multi_parents, compact=args.compact)
 
 if __name__ == "__main__":
