@@ -63,11 +63,14 @@ def build_inheritance_tree(exc_classes, all_paths=False):
     root = Exception
     nodes = {root}
 
-    # gather every exception class plus all their ancestors up to Exception
+    # gather every exception class plus exception ancestors up to Exception
     for cls in exc_classes:
         for ancestor in cls.__mro__:
             if ancestor is object:
                 break
+            # only include Exception subclasses (skip non-Exception bases)
+            if not issubclass(ancestor, Exception):
+                continue
             nodes.add(ancestor)
 
     # find each node's parent (closest ancestor in nodes)
