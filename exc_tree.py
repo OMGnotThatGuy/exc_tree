@@ -24,7 +24,7 @@ def find_exceptions_recursive(root_name):
         root = importlib.import_module(root_name)
     except ImportError as e:
         print(f"Error: could not import '{root_name}': {e}", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(10)
 
     modules = [(root_name, root)]
     # if it's a package, walk its submodules
