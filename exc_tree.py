@@ -101,8 +101,7 @@ def build_inheritance_tree(exc_classes: ExcSet, all_paths: bool = False) -> tupl
         lst.sort(key=lambda c: get_display_name(c).lower())
     # detect classes with multiple direct Exception-parents
     multi_parents = {
-        cls for cls in nodes
-        if cls is not root and len([base for base in cls.__bases__ if base in nodes]) > 1
+        cls for cls in nodes if cls is not root and len([base for base in cls.__bases__ if base in nodes]) > 1
     }
 
     if all_paths:
@@ -182,16 +181,18 @@ def main() -> None:
         metavar="module|package.submodule",
     )
     p.add_argument(
-        "-a", "--all-paths",
+        "-a",
+        "--all-paths",
         action="store_true",
         dest="all_paths",
-        help="Duplicate classes inheriting from multiple Exception bases under each parent class"
+        help="Duplicate classes inheriting from multiple Exception bases under each parent class",
     )
     p.add_argument(
-        "-c", "--compact",
+        "-c",
+        "--compact",
         action="store_true",
         dest="compact",
-        help="Use compact output (no extra blank lines)"
+        help="Use compact output (no extra blank lines)",
     )
 
     args = p.parse_args()
@@ -203,6 +204,7 @@ def main() -> None:
 
     root, child_map, multi_parents = build_inheritance_tree(excs, all_paths=args.all_paths)
     print_tree(root, child_map, multi_parents, compact=args.compact)
+
 
 if __name__ == "__main__":
     main()
